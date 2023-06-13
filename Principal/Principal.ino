@@ -3,11 +3,19 @@
 #include <MFRC522.h> // Leitor RFID
 #include <Wire.h> // Conexão I2C
 
+// DEBUG
+#define FAST_BOOT false
+
+/*      Buzzer     */
+#define buzzer 10 // Emissor de som
+
 /*     Display LCD     */
 #define enderecoLCD 0x27 // Endereço do Display
 #define colunasLCD 16 // Quantidade de colunas do Display
 #define linhasLCD 2 // Quantidade de linhas do Display
+int reescrever = 0; // Define se o LCD deve ser limpo e escrever o buffer
 LiquidCrystal_I2C lcd(enderecoLCD, colunasLCD, linhasLCD);
+
 
 /*      Relés     */
 #define pinoReleIgnicao 8
@@ -51,12 +59,17 @@ void iniciarSerial() {
 }
 
 void iniciarDisplay() {
+  reescrever = true;
   lcd.begin(colunasLCD, linhasLCD); // Iniciando o LCD
   lcd.init(); // Iniciando a comunicação com o LCD
   lcd.backlight(); // Ligando a luz traseira do display
 }
 
 void printD(String txt1, String txt2) {
+  if(!reescrever) {
+    return;
+  }
+
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print(txt1);
@@ -78,9 +91,10 @@ void iniciarLeitorDigital() {
     } else {
       Serial.println("Falha ao iniciar o leitor de digital!");
       Serial.println("Tentando novamente em 3 segundos...");
-
-      printD("Falha Leitor Dig.", "Tentando em 3seg...");
-      delay(3000);
+      if(!FAST_BOOT) {
+        printD("Falha Leitor Dig.", "Tentando em 3seg...");
+        delay(3000);
+      }
     }
   }
 
@@ -114,7 +128,15 @@ int coletarIdDigital() {
   return leitorDigital.fingerID;
 }
 
+void buzz() {
+  tone(buzzer, 440, 400);
+  delay(1000);
+}
+
 void setup() {
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(buzzer, LOW);
+
   Serial.println("\n\n\n\n\n");
   iniciarSerial();
   
@@ -122,18 +144,23 @@ void setup() {
   iniciarDisplay();
   Serial.println("Display iniciado com sucesso.");
   
-  printD("Display Iniciado.", "");
-  delay(2000);
+  if(!FAST_BOOT) {
+    printD("Display Iniciado.", "");
+    delay(2000);
 
-  printD("Iniciando", "Leitor de Dig.");
-  delay(2000);
+    printD("Iniciando", "Leitor de Dig.");
+    delay(2000);
+  }
 
   Serial.println("Iniciando leitor de digital...");
   
   iniciarLeitorDigital();
   Serial.println("Leitor de digital iniciado com sucesso.");
-  printD("Leitor Iniciado.", "");
-  delay(2000);
+  
+  if(!FAST_BOOT) {
+    printD("Leitor Iniciado.", "");
+    delay(2000);
+  }    
 }
 
 void loop() {
@@ -142,19 +169,29 @@ void loop() {
 
   finger_status = coletarIdDigital();
   if (finger_status !=-1 and finger_status != -2) {
-    Serial.print("Correspondência!");
-    printD("Leitura aceita.", "Bem-vindo!");
+    Serial.println("Correspondência!");
     rIgnicao.ligar();
     rEletrico.ligar();
-    delay(4000);
+    
+    buzz();
+    printD("Leitura aceita.", "Bem-vindo!");
+    
+    delay(3000);
+    
     rIgnicao.desligar();
     rEletrico.desligar();
+    reescrever = true;
+    return;
   } else {
     if (finger_status == -2){
       Serial.print("Nenhuma correspondência!");
       printD("Nao corresponde.", "Tente novamente...");
       delay(1000);
+      reescrever = true;
+      return;
     }
   }
-  delay(1000);            //don't ned to run this at full speed.
+  
+  delay(200);
+  reescrever = false;
 }
