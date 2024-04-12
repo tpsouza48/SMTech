@@ -1,2 +1,2 @@
 # SMTech
- Projeto em conjunto para a SMTech/Incubadora
+ Projeto em conjunto desenvolvido para a SMTech/Incubadora, um evento da Faculdade Santa Marcelina, usando Arduino!
